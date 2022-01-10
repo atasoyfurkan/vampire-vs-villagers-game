@@ -5,6 +5,7 @@ import select
 from threading import Thread
 import random
 import time
+import logging
 
 PORT = 12345
 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -14,6 +15,8 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
 args = None
 clients = {}
 
+logging.warning('Watch out!')
+
 
 def main():
     global args
@@ -21,38 +24,49 @@ def main():
     print(args)
 
     listen_handshake()
+    print("Number of clients:", len(clients), "Names:", clients.keys())
     choose_vampire()
     acknowledge_clients_about_roles()
+    print("EXECUTED acknowledge_clients_about_roles()")
 
     while(True):
         broadcast_game_state("daytime")
+        print('EXECUTED broadcast_game_state("daytime")')
         time.sleep(args.daytime_duration)  # wait for daytime
 
         broadcast_game_state("votetime")
+        print('EXECUTED broadcast_game_state("votetime")')
         votes = listen_votes()  # wait for votetime
+        print("INFO Total vote count:", len(votes))
         hanged_client = count_votes(votes)
+        print("INFO Hanged client:", hanged_client)
         kill_client(hanged_client, "hanged")
+        print("INFO Killed client:", hanged_client)
+
         is_game_ended, winner = check_and_broadcast_game_ended()
         if is_game_ended:
-            print(f"Game ended. Winner is ${winner}")
+            print(f"Game ended. Winner is {winner}")
             break
 
         broadcast_game_state("nighttime")
+        print('EXECUTED broadcast_game_state("nighttime")')
         attacked_client = listen_vampire()  # wait for nighttime
+        print("INFO Attacked client:", attacked_client)
         kill_client(attacked_client, "attacked")
+        print("INFO Killed client:", attacked_client)
         is_game_ended, winner = check_and_broadcast_game_ended()
         if is_game_ended:
-            print(f"Game ended. Winner is ${winner}")
+            print(f"Game ended. Winner is {winner}")
             break
 
 
 def init_argparse():
     # Initialize parser
     parser = argparse.ArgumentParser()
-    parser.add_argument("--daytime_duration", default=120, help="Set Daytime Duration")
-    parser.add_argument("--votetime_duration", default=30, help="Set Vote Time Duration")
-    parser.add_argument("--nighttime_duration", default=30, help="Set Nighttime Duration")
-    parser.add_argument("--number_of_users", default=5, help="Set Number of Users")
+    parser.add_argument("--daytime_duration", default=120, type=int, help="Set Daytime Duration")
+    parser.add_argument("--votetime_duration", default=30, type=int, help="Set Vote Time Duration")
+    parser.add_argument("--nighttime_duration", default=30, type=int, help="Set Nighttime Duration")
+    parser.add_argument("--number_of_users", default=5, type=int, help="Set Number of Users")
 
     args = parser.parse_args()
 
@@ -80,6 +94,7 @@ def listen_handshake():
             content = json.loads(output.decode("utf-8"))
             if content["type"] == 1:
                 get_discover(content, client_ip)
+                print("INFO Handshaked with client:", content['client_name'])
         except Exception as e:
             print("An error occured:", e)
 
@@ -98,10 +113,12 @@ def get_discover(content, client_ip):
                 "is_vampire": False,
                 "is_dead": False
             }
-            Thread(target=send_discover_response, args=[client_ip]).start()
+            send_discover_response(client_ip)
+            # Thread(target=send_discover_response, args=[client_ip]).start()
 
         elif clients[client_name]["ID"] != client_burst_id:  # discover from the same user (connection lost)
-            Thread(target=send_discover_response, args=[client_ip]).start()
+            send_discover_response(client_ip)
+            # Thread(target=send_discover_response, args=[client_ip]).start()
 
 
 def send_discover_response(client_ip):
@@ -122,6 +139,7 @@ def choose_vampire():
     vampire_id = random.randint(0, args.number_of_users-1)
     vampire_name = list(clients.keys())[vampire_id]
     clients[vampire_name]["is_vampire"] = True
+    print("INFO Vampire is:", vampire_name)
 
 
 def acknowledge_clients_about_roles():
@@ -157,7 +175,7 @@ def broadcast_game_state(state):  # daytime or votetime or nighttime
         "state": state,
         "duration": duration
     })
-    for client_features in clients:
+    for client_features in clients.values():
         client_ip = client_features["IP"]
         send_tcp(message, client_ip)
 
@@ -167,22 +185,25 @@ def listen_votes():  # TODO test timeout
     votes = {}
 
     while(time.time() - start_time < args.votetime_duration):
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:  # UDP
-                s.bind(('', PORT))
-                remaining_time = args.nighttime_duration - (time.time() - start_time)
-                s.settimeout(remaining_time)
-                s.setblocking(0)
-                result = select.select([s], [], [], remaining_time)
+        # try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:  # UDP
+            s.bind(('', PORT))
+            remaining_time = args.nighttime_duration - (time.time() - start_time)
+            s.settimeout(remaining_time)
+            s.setblocking(0)
+            result = select.select([s], [], [], remaining_time)
+            if len(result[0]) > 0:
                 output, (client_ip, _) = result[0][0].recvfrom(10240)
 
+        if len(result[0]) > 0:
             content = json.loads(output.decode("utf-8"))
             if content["type"] == 5:
                 voter_name, voted_name = get_vote(content, client_ip)
+                print(f"INFO client {voter_name} voted for {voted_name}")
                 if voter_name:
                     votes[voter_name] = voted_name
-        except Exception as e:
-            print("An error occured:", e)
+        # except Exception as e:
+        #     print("An error occured:", e)
 
     return votes
 
@@ -233,7 +254,7 @@ def kill_client(name, status):  # status = "hanged" or "attacked"
                 "attacked_client_name": name
             })
 
-        for client_features in clients:
+        for client_features in clients.values():
             client_ip = client_features["IP"]
             send_tcp(message, client_ip)
 
@@ -267,9 +288,11 @@ def check_and_broadcast_game_ended():
         "type": 7,
         "winner": winner
     })
-    for client_features in clients:
+    for client_features in clients.values():
         client_ip = client_features["IP"]
         send_tcp(message, client_ip)
+
+    print("Alive vampires:", alive_vampires_count, "Alive villagers:", alive_villagers_count)
 
     return is_game_ended, winner
 
