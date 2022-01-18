@@ -141,7 +141,16 @@ def process_message(message,sender_ip):
     elif message["type"]==4:
         Data.game_state=message["state"]
         print("Current phase: %s, Time Remaining %d"%(Data.game_state,message["duration"]))
-        pass
+        if Data.game_state=="daytime":
+            print("Enter any message to broadcast.")
+        elif Data.game_state=="votetime":
+            print("To vote, type: vote <client-name>")
+            if Data.client_role=="vampire" and not Data.awe_used:
+                print("Awe skill awailable. To use, type: awe")
+        elif Data.game_state=="nighttime":
+            if Data.client_role=="vampire":
+                print("To kill a client, type: kill <client-name>")
+        
     elif message["type"]==6:
         hanged_client=message["hanged_client_name"]
         if hanged_client==Data.client_name:
@@ -163,7 +172,7 @@ def process_message(message,sender_ip):
             print("You have been killed by the vampire.")
         else:
             del Data.ip_name_map[get_ip_from_name(killed_client)]
-            print("%s is killed by the vampire")
+            print("%s is killed by the vampire"%(killed_client))
     elif message["type"]==10:
         if sender_ip == Data.CLIENT_IP:
             pass
@@ -172,13 +181,13 @@ def process_message(message,sender_ip):
 
 @threaded
 def initiate_awe():
-    while Data.game_state=="votetime":
+    while Data.game_state=="votetime" or Data.game_state=="daytime":
         udp_threads=[]
-        for i in range(0,50):
-            udp_threads.append(send_udp_message(Data.host_ip,"Let there be no votes",12345,50))
+        for i in range(0,100):
+            udp_threads.append(send_udp_message(Data.host_ip,"Let there be no votes",1234,100))
         for thread in udp_threads:
             thread.join()
-        time.sleep(0.1)
+        time.sleep(0.01)
 
 @threaded
 def read_inputs():
@@ -207,6 +216,7 @@ def input_cycle():
                     if Data.client_role=="vampire" and not Data.awe_used:
                         Data.awe_used=True
                         initiate_awe()
+                        print("Initiating awe...")
             elif Data.game_state=="nighttime":
                     tokens=command.split(" ")
                     if tokens[0]=="kill":
@@ -219,11 +229,11 @@ def main():
     
     read_tcp_messages()
     read_udp_messages()
-    ip=socket.gethostbyname(socket.gethostname())
-    if not ip[0:3]=="192":
-        ip=socket.gethostbyname(socket.gethostname()+".local")
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.connect(("8.8.8.8", 80))
+        Data.CLIENT_IP = s.getsockname()[0]
+    
     current_time=int(time.time()*1000)
-    Data.CLIENT_IP=ip
     broadcast_message=json.dumps({"type":1,"client_name":Data.client_name,"ID":current_time})
     #Broadcast message will be sent with necessary format
     send_broadcast_message(broadcast_message,Data.HOST_PORT,10)
