@@ -120,6 +120,7 @@ def process_message(message,sender_ip):
         Data.join_response_event.set()
     elif message["type"]==3:
         Data.client_role=message["role"]
+        Data.ip_name_map=message["client_names"]
         print("Game starts, you are %s"%(Data.client_role))
         Data.game_start_event.set()
     elif message["type"]==4:
