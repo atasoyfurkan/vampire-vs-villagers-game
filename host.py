@@ -6,7 +6,8 @@ from threading import Thread
 import random
 import time
 
-PORT = 12345
+LISTEN_PORT = 12346
+SEND_PORT = 12345
 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
     s.connect(("8.8.8.8", 80))
     HOST = s.getsockname()[0]
@@ -73,7 +74,7 @@ def init_argparse():
 def send_tcp(message, client_ip):
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:  # TCP
-            s.connect((client_ip, PORT))
+            s.connect((client_ip, SEND_PORT))
             s.sendall(str.encode(message))
     except Exception as e:
         print("An error occured:", e)
@@ -83,7 +84,7 @@ def listen_handshake():
     while(len(clients) < args.number_of_users):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:  # UDP
-                s.bind(('', PORT))
+                s.bind(('', LISTEN_PORT))
                 s.setblocking(0)
                 result = select.select([s], [], [])
                 output, (client_ip, _) = result[0][0].recvfrom(10240)
@@ -124,7 +125,7 @@ def send_discover_response(client_ip):
     })
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:  # TCP
-            s.connect((client_ip, PORT))
+            s.connect((client_ip, SEND_PORT))
             s.sendall(str.encode(message))
     except Exception as e:
         print("An error occured:", e)
@@ -158,7 +159,7 @@ def acknowledge_clients_about_roles_and_names():
         })
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:  # TCP
-                s.connect((client_ip, PORT))
+                s.connect((client_ip, SEND_PORT))
                 s.sendall(str.encode(message))
         except Exception as e:
             print("An error occured:", e)
@@ -174,7 +175,7 @@ def broadcast_game_state(state):  # daytime or votetime or nighttime
         duration = args.nighttime_duration
 
     message = json.dumps({
-        "type": 3,
+        "type": 4,
         "state": state,
         "duration": duration
     })
@@ -190,7 +191,7 @@ def listen_votes():  # TODO test timeout
     while(time.time() - start_time < args.votetime_duration):
         # try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:  # UDP
-            s.bind(('', PORT))
+            s.bind(('', LISTEN_PORT))
             remaining_time = args.nighttime_duration - (time.time() - start_time)
             s.settimeout(remaining_time)
             s.setblocking(0)
@@ -199,12 +200,15 @@ def listen_votes():  # TODO test timeout
                 output, (client_ip, _) = result[0][0].recvfrom(10240)
 
         if len(result[0]) > 0:
-            content = json.loads(output.decode("utf-8"))
-            if content["type"] == 5:
-                voter_name, voted_name = get_vote(content, client_ip)
-                print(f"INFO client {voter_name} voted for {voted_name}")
-                if voter_name:
-                    votes[voter_name] = voted_name
+            try:
+                content = json.loads(output.decode("utf-8"))
+                if content["type"] == 5:
+                    voter_name, voted_name = get_vote(content, client_ip)
+                    print(f"INFO client {voter_name} voted for {voted_name}")
+                    if voter_name:
+                        votes[voter_name] = voted_name
+            except:
+                print("INFO DDOS")
         # except Exception as e:
         #     print("An error occured:", e)
 
@@ -228,9 +232,9 @@ def count_votes(votes):
     vote_of_clients = {}
     for voted_client in votes.values():
         if vote_of_clients.get(voted_client):
-            vote_of_clients['vote'] += 1
+            vote_of_clients[voted_client] += 1
         else:
-            vote_of_clients['vote'] = 0
+            vote_of_clients[voted_client] = 0
 
     if(len(vote_of_clients) > 0):  # if there is any voted user
         hanged_name = max(vote_of_clients, key=vote_of_clients.get)
@@ -283,7 +287,7 @@ def check_and_broadcast_game_ended():
         is_game_ended = True
         winner = "villagers"
 
-    if alive_villagers_count == alive_vampires_count:
+    if alive_villagers_count <= alive_vampires_count:
         is_game_ended = True
         winner = "vampire"
 
@@ -300,10 +304,11 @@ def check_and_broadcast_game_ended():
     return is_game_ended, winner
 
 
-def listen_vampire():  # TODO test timeout
+def listen_vampire():
+    attacked_client = None
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:  # TCP
-            s.bind((HOST, PORT))
+            s.bind((HOST, LISTEN_PORT))
             s.settimeout(args.nighttime_duration)  # timeout for the vampire kill command
             s.listen()
             conn, client_ip = s.accept()
