@@ -75,7 +75,6 @@ def read_udp_messages():
             except: continue
             process_message(data,addr[0])
 
-
 @threaded
 def read_tcp_messages():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -98,34 +97,27 @@ def send_tcp_message(ip,message):
     byte_message=message.encode("utf-8")
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
-            s.connect((ip, Data.CLIENT_PORT))
+            s.connect((ip, Data.HOST_PORT))
         except OSError:
             print("could not send message " + message)
             return
         s.sendall(byte_message)
 
-
 @threaded
-def send_udp_client_message(ip,message,burst_length=1):
+def send_udp_message(ip,message,port,burst_length=1):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         for i in range(0,burst_length):
             byte_message=str(message).encode("utf-8")
-            s.sendto(byte_message,(ip,Data.CLIENT_PORT))
-@threaded
-def send_udp_host_message(ip,message,burst_length=1):
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        for i in range(0,burst_length):
-            byte_message=str(message).encode("utf-8")
-            s.sendto(byte_message,(ip,Data.HOST_PORT))
+            s.sendto(byte_message,(ip,port))
 
 @threaded
-def send_broadcast_message(message,burst_length=1):
+def send_broadcast_message(message,port,burst_length=1):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.bind(('',0))
     s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST,1)
     byte_message=str(message).encode("utf-8")
     for i in range(0,burst_length):
-        s.sendto(byte_message,('<broadcast>',Data.CLIENT_PORT))
+        s.sendto(byte_message,('<broadcast>',port))
 
 def get_ip_from_name(name):
     for ip in Data.ip_name_map.values():
@@ -181,7 +173,7 @@ def initiate_awe():
     while Data.game_state=="votetime":
         udp_threads=[]
         for i in range(0,50):
-            udp_threads.append(send_udp_host_message(Data.host_ip,"Let there be no votes",50))
+            udp_threads.append(send_udp_message(Data.host_ip,"Let there be no votes",Data.HOST_PORT,50))
         for thread in udp_threads:
             thread.join()
         time.sleep(0.1)
@@ -203,12 +195,12 @@ def input_cycle():
         if command and Data.is_alive:
             if Data.game_state=="daytime":
                 vote_message=json.dumps({"type":10,"body":command})
-                send_broadcast_message(vote_message)
+                send_broadcast_message(vote_message,Data.CLIENT_PORT)
             elif Data.game_state=="votetime":
                 tokens=command.split(" ")
                 if tokens[0]=="vote":
                     vote_message=json.dumps({"type":5,"voted_client_name":tokens[1]})
-                    send_udp_host_message(Data.host_ip,vote_message)
+                    send_udp_message(Data.host_ip,vote_message,Data.HOST_PORT)
                 if tokens[0]=="awe":
                     if Data.client_role=="vampire" and not Data.awe_used:
                         Data.awe_used=True
@@ -222,15 +214,20 @@ def input_cycle():
 
 def main():
     Data.client_name=input("Enter name: ")
-    #TODO: Broadcast message will be sent with necessary format
+    
     read_tcp_messages()
     read_udp_messages()
+    ip=socket.gethostbyname(socket.gethostname())
+    if not ip[0:3]=="192":
+        ip=socket.gethostbyname(socket.gethostname()+".local")
     current_time=int(time.time()*1000)
+    Data.CLIENT_IP=ip
     broadcast_message=json.dumps({"type":1,"client_name":Data.client_name,"ID":current_time})
-    send_broadcast_message(broadcast_message,10)
-    #TODO: Wait for response from the host
+    #Broadcast message will be sent with necessary format
+    send_broadcast_message(broadcast_message,Data.HOST_PORT,10)
+    #Wait for response from the host
     if Data.join_response_event.wait(2):
-        #TODO: If yes, continue to wait for game start.
+        #If yes, continue to wait for game start.
         Data.game_start_event.wait()
         input_cycle()
         read_inputs()
