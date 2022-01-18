@@ -120,7 +120,7 @@ def send_broadcast_message(message,port,burst_length=1):
         s.sendto(byte_message,('<broadcast>',port))
 
 def get_ip_from_name(name):
-    for ip in Data.ip_name_map.values():
+    for ip in Data.ip_name_map.keys():
         if name==Data.ip_name_map[ip]:
             return ip
     return None
@@ -131,7 +131,6 @@ def process_message(message,sender_ip):
         Data.host_ip=sender_ip
         Data.join_response_event.set()
     elif message["type"]==3:
-        print("")
         Data.client_role=message["role"]
         Data.ip_name_map=message["client_names"]
         print("Game starts, you are %s"%(Data.client_role))
@@ -147,7 +146,7 @@ def process_message(message,sender_ip):
             print("You have been voted off and hanged.")
         else:
             del Data.ip_name_map[get_ip_from_name(hanged_client)]
-            print("%s is voted off and hanged")
+            print("%s is voted off and hanged"%(hanged_client))
     elif message["type"]==7:
         print("Game over, %s win!"%(message["winner"]))
         Data.game_end=True
