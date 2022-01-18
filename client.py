@@ -134,6 +134,9 @@ def process_message(message,sender_ip):
         Data.client_role=message["role"]
         Data.ip_name_map=message["client_names"]
         print("Game starts, you are %s"%(Data.client_role))
+        print("Active players:")
+        for name in Data.ip_name_map.values():
+            print(name)
         Data.game_start_event.set()
     elif message["type"]==4:
         Data.game_state=message["state"]
