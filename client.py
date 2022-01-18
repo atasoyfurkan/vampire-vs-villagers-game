@@ -7,6 +7,7 @@ import time
 import json
 import os
 class Data:
+    HOST_PORT=12346
     CLIENT_PORT=12345
     CLIENT_IP=""
     
@@ -65,7 +66,7 @@ def read_udp_messages():
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         while Data.run_message_daemon:
-            try:s.bind(('',12345))
+            try:s.bind(('',Data.CLIENT_PORT))
             except OSError:pass
             s.setblocking(0)
             result = select.select([s],[],[])
@@ -81,7 +82,7 @@ def read_tcp_messages():
         #This is to enable socket reusage since connections are dropped and reestablished in short intervals.
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         while Data.run_message_daemon:
-            try: s.bind((Data.CLIENT_IP, 12346))
+            try: s.bind((Data.CLIENT_IP, Data.CLIENT_PORT))
             except OSError: pass
             s.listen()
             conn, addr = s.accept()
@@ -97,7 +98,7 @@ def send_tcp_message(ip,message):
     byte_message=message.encode("utf-8")
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
-            s.connect((ip, 12346))
+            s.connect((ip, Data.CLIENT_PORT))
         except OSError:
             print("could not send message " + message)
             return
@@ -115,7 +116,7 @@ def send_udp_host_message(ip,message,burst_length=1):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         for i in range(0,burst_length):
             byte_message=str(message).encode("utf-8")
-            s.sendto(byte_message,(ip,12346))
+            s.sendto(byte_message,(ip,Data.HOST_PORT))
 
 @threaded
 def send_broadcast_message(message,burst_length=1):
