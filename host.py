@@ -193,9 +193,9 @@ def listen_votes():  # TODO test timeout
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:  # UDP
             s.bind(('', LISTEN_PORT))
             remaining_time = args.nighttime_duration - (time.time() - start_time)
-            s.settimeout(remaining_time)
+            s.settimeout(1 if remaining_time <= 0 else remaining_time)
             s.setblocking(0)
-            result = select.select([s], [], [], remaining_time)
+            result = select.select([s], [], [], 1 if remaining_time <= 0 else remaining_time)
             if len(result[0]) > 0:
                 output, (client_ip, _) = result[0][0].recvfrom(10240)
 
@@ -291,13 +291,14 @@ def check_and_broadcast_game_ended():
         is_game_ended = True
         winner = "vampire"
 
-    message = json.dumps({
-        "type": 7,
-        "winner": winner
-    })
-    for client_features in clients.values():
-        client_ip = client_features["IP"]
-        send_tcp(message, client_ip)
+    if is_game_ended:
+        message = json.dumps({
+            "type": 7,
+            "winner": winner
+        })
+        for client_features in clients.values():
+            client_ip = client_features["IP"]
+            send_tcp(message, client_ip)
 
     print("Alive vampires:", alive_vampires_count, "Alive villagers:", alive_villagers_count)
 
