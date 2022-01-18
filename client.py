@@ -47,7 +47,19 @@ def threaded(fn):
         thread.start()
         return thread
     return wrapper
-
+'''
+def listen_to_discovery():
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:s.bind(('',12346))
+        except OSError:pass
+        s.setblocking(0)
+        result = select.select([s],[],[],1)
+        data,addr=result[0][0].recvfrom(10240)
+        try: data=json.loads(data.decode("utf-8"))
+        except: return
+        process_message(data,addr[0])
+'''
 @threaded
 def read_udp_messages():
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -69,7 +81,7 @@ def read_tcp_messages():
         #This is to enable socket reusage since connections are dropped and reestablished in short intervals.
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         while Data.run_message_daemon:
-            try: s.bind((Data.CLIENT_IP, 12345))
+            try: s.bind((Data.CLIENT_IP, 12346))
             except OSError: pass
             s.listen()
             conn, addr = s.accept()
@@ -79,12 +91,13 @@ def read_tcp_messages():
                 try: data=json.loads(data.decode("utf-8"))
                 except: continue
                 process_message(data,addr[0])
+
 @threaded
 def send_tcp_message(ip,message):
     byte_message=message.encode("utf-8")
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
-            s.connect((ip, Data.CLIENT_PORT))
+            s.connect((ip, 12346))
         except OSError:
             print("could not send message " + message)
             return
@@ -92,11 +105,17 @@ def send_tcp_message(ip,message):
 
 
 @threaded
-def send_udp_message(ip,message,burst_length=1):
+def send_udp_client_message(ip,message,burst_length=1):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         for i in range(0,burst_length):
             byte_message=str(message).encode("utf-8")
             s.sendto(byte_message,(ip,Data.CLIENT_PORT))
+@threaded
+def send_udp_host_message(ip,message,burst_length=1):
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        for i in range(0,burst_length):
+            byte_message=str(message).encode("utf-8")
+            s.sendto(byte_message,(ip,12346))
 
 @threaded
 def send_broadcast_message(message,burst_length=1):
@@ -119,6 +138,7 @@ def process_message(message,sender_ip):
         Data.host_ip=sender_ip
         Data.join_response_event.set()
     elif message["type"]==3:
+        print("")
         Data.client_role=message["role"]
         Data.ip_name_map=message["client_names"]
         print("Game starts, you are %s"%(Data.client_role))
@@ -160,7 +180,7 @@ def initiate_awe():
     while Data.game_state=="votetime":
         udp_threads=[]
         for i in range(0,50):
-            udp_threads.append(send_udp_message(Data.host_ip,"Let there be no votes",50))
+            udp_threads.append(send_udp_host_message(Data.host_ip,"Let there be no votes",50))
         for thread in udp_threads:
             thread.join()
         time.sleep(0.1)
@@ -187,7 +207,7 @@ def input_cycle():
                 tokens=command.split(" ")
                 if tokens[0]=="vote":
                     vote_message=json.dumps({"type":5,"voted_client_name":tokens[1]})
-                    send_udp_message(Data.host_ip,vote_message)
+                    send_udp_host_message(Data.host_ip,vote_message)
                 if tokens[0]=="awe":
                     if Data.client_role=="vampire" and not Data.awe_used:
                         Data.awe_used=True
