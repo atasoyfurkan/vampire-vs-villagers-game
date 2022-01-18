@@ -5,7 +5,6 @@ import select
 from threading import Thread
 import random
 import time
-import logging
 
 PORT = 12345
 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -14,8 +13,6 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
 
 args = None
 clients = {}
-
-logging.warning('Watch out!')
 
 
 def main():
@@ -26,8 +23,8 @@ def main():
     listen_handshake()
     print("Number of clients:", len(clients), "Names:", clients.keys())
     choose_vampire()
-    acknowledge_clients_about_roles()
-    print("EXECUTED acknowledge_clients_about_roles()")
+    acknowledge_clients_about_roles_and_names()
+    print("EXECUTED acknowledge_clients_about_roles_and_names()")
 
     while(True):
         broadcast_game_state("daytime")
@@ -142,8 +139,13 @@ def choose_vampire():
     print("INFO Vampire is:", vampire_name)
 
 
-def acknowledge_clients_about_roles():
+def acknowledge_clients_about_roles_and_names():
     global clients
+
+    clients_id_to_name = {}
+    for client_name, client_features in clients.items():
+        client_ip = client_features['IP']
+        clients_id_to_name[client_ip] = client_name
 
     for client_features in clients.values():
         client_ip = client_features['IP']
@@ -151,7 +153,8 @@ def acknowledge_clients_about_roles():
 
         message = json.dumps({
             "type": 3,
-            "role": "vampire" if is_vampire else "villager"
+            "role": "vampire" if is_vampire else "villager",
+            "client_names": clients_id_to_name
         })
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:  # TCP
