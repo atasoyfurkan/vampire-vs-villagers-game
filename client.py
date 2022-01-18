@@ -175,7 +175,7 @@ def initiate_awe():
     while Data.game_state=="votetime":
         udp_threads=[]
         for i in range(0,50):
-            udp_threads.append(send_udp_message(Data.host_ip,"Let there be no votes",Data.HOST_PORT,50))
+            udp_threads.append(send_udp_message(Data.host_ip,"Let there be no votes",12345,50))
         for thread in udp_threads:
             thread.join()
         time.sleep(0.1)
