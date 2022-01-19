@@ -141,15 +141,16 @@ def process_message(message,sender_ip):
     elif message["type"]==4:
         Data.game_state=message["state"]
         print("Current phase: %s, Time Remaining %d"%(Data.game_state,message["duration"]))
-        if Data.game_state=="daytime":
-            print("Enter any message to broadcast.")
-        elif Data.game_state=="votetime":
-            print("To vote, type: vote <client-name>")
-            if Data.client_role=="vampire" and not Data.awe_used:
-                print("Awe skill awailable. To use, type: awe")
-        elif Data.game_state=="nighttime":
-            if Data.client_role=="vampire":
-                print("To kill a client, type: kill <client-name>")
+        if Data.is_alive:
+            if Data.game_state=="daytime":
+                print("Enter any message to broadcast.")
+            elif Data.game_state=="votetime":
+                print("To vote, type: vote <client-name>")
+                if Data.client_role=="vampire" and not Data.awe_used:
+                    print("Awe skill awailable. To use, type: awe")
+            elif Data.game_state=="nighttime":
+                if Data.client_role=="vampire":
+                    print("To kill a client, type: kill <client-name>")
         
     elif message["type"]==6:
         hanged_client=message["hanged_client_name"]
@@ -184,7 +185,7 @@ def initiate_awe():
     while Data.game_state=="votetime" or Data.game_state=="daytime":
         udp_threads=[]
         for i in range(0,100):
-            udp_threads.append(send_udp_message(Data.host_ip,"Let there be no votes",1234,100))
+            udp_threads.append(send_udp_message(Data.host_ip,"Let there be no votes",1234,1000))
         for thread in udp_threads:
             thread.join()
         time.sleep(0.01)
