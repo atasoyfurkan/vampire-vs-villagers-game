@@ -249,7 +249,7 @@ def main():
             if sys.argv[2]=="listen":
                 test_ddos_read()
             else:
-                test_ddos_send(sys.argv[2],int(sys.argv.get(3,"100")),float(sys.argv.get(4,"0.1")))
+                test_ddos_send(*(sys.argv[2:]))
             os._exit(0)
         
     Data.client_name=input("Enter name: ")
