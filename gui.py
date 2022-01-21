@@ -293,7 +293,7 @@ def start_gui():
 
             ]
     # Create the Window
-    window = sg.Window('Vampire & Villager', layout)
+    window = sg.Window('Vampire vs Villagers', layout)
     
     messages=[]
     message_txt=window["-TEXTBOX-"]
@@ -356,6 +356,8 @@ def core_game_gui():
               [sg.Text("Available commands:"),input_help_box],
               [sg.Text("Enter command:"),command_input,sg.Button('Ok',bind_return_key=True)]
             ]
+    
+    window = sg.Window('Vampire vs Villagers', layout)
     
     while True:
         event,values=window.read(0.1)
