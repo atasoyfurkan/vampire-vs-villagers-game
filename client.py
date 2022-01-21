@@ -1,7 +1,7 @@
-from os import wait
 import socket
 import threading
 import select
+import sys
 import queue
 import time
 import json
@@ -28,8 +28,10 @@ class Data:
 
     is_alive=True
     awe_used=False
+    
     join_response_event=threading.Event()
     game_start_event=threading.Event()
+    
     state_change_event=threading.Event()
     
 
@@ -41,48 +43,33 @@ So it basically enables me to skip writing
 	new_thread.start()
         for each funtion
 '''
-
 def threaded(fn):
     def wrapper(*args, **kwargs):
         thread = threading.Thread(target=fn, args=args, kwargs=kwargs)
         thread.start()
         return thread
     return wrapper
-'''
-def listen_to_discovery():
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:s.bind(('',12346))
-        except OSError:pass
-        s.setblocking(0)
-        result = select.select([s],[],[],1)
-        data,addr=result[0][0].recvfrom(10240)
-        try: data=json.loads(data.decode("utf-8"))
-        except: return
-        process_message(data,addr[0])
-'''
+
 @threaded
 def read_udp_messages():
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:s.bind(('',Data.CLIENT_PORT))
+        except OSError:pass
+        s.setblocking(0)
         while Data.run_message_daemon:
-            try:s.bind(('',Data.CLIENT_PORT))
-            except OSError:pass
-            s.setblocking(0)
             result = select.select([s],[],[])
             data,addr=result[0][0].recvfrom(10240)
             try: data=json.loads(data.decode("utf-8"))
             except: continue
             process_message(data,addr[0])
-
 @threaded
 def read_tcp_messages():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        #This is to enable socket reusage since connections are dropped and reestablished in short intervals.
+        try: s.bind((Data.CLIENT_IP, Data.CLIENT_PORT))
+        except OSError: pass
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         while Data.run_message_daemon:
-            try: s.bind((Data.CLIENT_IP, Data.CLIENT_PORT))
-            except OSError: pass
             s.listen()
             conn, addr = s.accept()
             with conn:
@@ -91,7 +78,6 @@ def read_tcp_messages():
                 try: data=json.loads(data.decode("utf-8"))
                 except: continue
                 process_message(data,addr[0])
-
 @threaded
 def send_tcp_message(ip,message):
     byte_message=message.encode("utf-8")
@@ -102,14 +88,13 @@ def send_tcp_message(ip,message):
             print("could not send message " + message)
             return
         s.sendall(byte_message)
-
 @threaded
 def send_udp_message(ip,message,port,burst_length=1):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         for i in range(0,burst_length):
             byte_message=str(message).encode("utf-8")
-            s.sendto(byte_message,(ip,port))
-
+            try:s.sendto(byte_message,(ip,port))
+            except:continue
 @threaded
 def send_broadcast_message(message,port,burst_length=1):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -124,7 +109,6 @@ def get_ip_from_name(name):
         if name==Data.ip_name_map[ip]:
             return ip
     return None
-
 
 def process_message(message,sender_ip):
     if message["type"]==2:
@@ -184,7 +168,7 @@ def process_message(message,sender_ip):
 def initiate_awe():
     while Data.game_state=="votetime" or Data.game_state=="daytime":
         udp_threads=[]
-        for i in range(0,100):
+        for i in range(0,50):
             udp_threads.append(send_udp_message(Data.host_ip,"Let there be no votes",1234,1000))
         for thread in udp_threads:
             thread.join()
@@ -199,11 +183,9 @@ def read_inputs():
 @threaded
 def input_cycle():
     while not Data.game_end:
-        try:
-            command=Data.input_queue.get()
-        except:
-            command=None
-        
+        try: command=Data.input_queue.get()
+        except: command=None
+
         if command and Data.is_alive:
             if Data.game_state=="daytime":
                 vote_message=json.dumps({"type":10,"body":command})
@@ -223,11 +205,52 @@ def input_cycle():
                     if tokens[0]=="kill":
                         kill_message=json.dumps({"type":8,"attacked_client_name":tokens[1]})
                         send_tcp_message(Data.host_ip,kill_message)
+def test_ddos_read():
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:s.bind(('',Data.CLIENT_PORT))
+        except OSError:pass
+        s.setblocking(0)
+        counter=0
+        while Data.run_message_daemon:
+            result = select.select([s],[],[],10)
+            if not len(result[0]):
+                print("Timeout, packets received: %s" % (counter))
+                break
+            data,_=result[0][0].recvfrom(10240)
+            if data.decode("utf-8")=="end":
+                print("Packets received: %s" % (counter))
+                break
+            else:
+                counter+=1
 
+def test_ddos_send(target_ip,packet_count=100,delay=0.1):
+    Data.host_ip=target_ip
+    Data.game_state="daytime"
+    
+    packet_count=int(packet_count)
+    delay=float(delay)
+    
+    ddos_t=initiate_awe()
+    time.sleep(1)
+    for i in range(0,packet_count):
+        t=send_udp_message(target_ip,"Is this reaching?",Data.CLIENT_PORT,1)
+        t.join()
+        time.sleep(delay)
+    Data.game_state=""
+    ddos_t.join()
+    send_udp_message(target_ip,"end",Data.CLIENT_PORT,10).join()
 
 def main():
+    if len(sys.argv)>=3:
+        if sys.argv[1]=="test_ddos":
+            if sys.argv[2]=="listen":
+                test_ddos_read()
+            else:
+                test_ddos_send(*(sys.argv[2:]))
+            os._exit(0)
+        
     Data.client_name=input("Enter name: ")
-    
     read_tcp_messages()
     read_udp_messages()
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
