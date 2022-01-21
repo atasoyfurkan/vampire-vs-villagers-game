@@ -232,6 +232,10 @@ def test_ddos_read():
 def test_ddos_send(target_ip,packet_count=100,delay=0.1):
     Data.host_ip=target_ip
     Data.game_state="daytime"
+    
+    packet_count=int(packet_count)
+    delay=float(delay)
+    
     ddos_t=initiate_awe()
     time.sleep(1)
     for i in range(0,packet_count):
