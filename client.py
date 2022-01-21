@@ -1,5 +1,3 @@
-from ntpath import join
-from os import wait
 import socket
 import threading
 import select
@@ -30,8 +28,10 @@ class Data:
 
     is_alive=True
     awe_used=False
+    
     join_response_event=threading.Event()
     game_start_event=threading.Event()
+    
     state_change_event=threading.Event()
     
 
@@ -110,7 +110,6 @@ def get_ip_from_name(name):
             return ip
     return None
 
-
 def process_message(message,sender_ip):
     if message["type"]==2:
         Data.host_ip=sender_ip
@@ -184,11 +183,9 @@ def read_inputs():
 @threaded
 def input_cycle():
     while not Data.game_end:
-        try:
-            command=Data.input_queue.get()
-        except:
-            command=None
-        
+        try: command=Data.input_queue.get()
+        except: command=None
+
         if command and Data.is_alive:
             if Data.game_state=="daytime":
                 vote_message=json.dumps({"type":10,"body":command})
@@ -216,7 +213,7 @@ def test_ddos_read():
         s.setblocking(0)
         counter=0
         while Data.run_message_daemon:
-            result = select.select([s],[],[],5)
+            result = select.select([s],[],[],10)
             if not len(result[0]):
                 print("Timeout, packets received: %s" % (counter))
                 break
@@ -226,8 +223,6 @@ def test_ddos_read():
                 break
             else:
                 counter+=1
-
-            
 
 def test_ddos_send(target_ip,packet_count=100,delay=0.1):
     Data.host_ip=target_ip
@@ -245,7 +240,6 @@ def test_ddos_send(target_ip,packet_count=100,delay=0.1):
     Data.game_state=""
     ddos_t.join()
     send_udp_message(target_ip,"end",Data.CLIENT_PORT,10).join()
-
 
 def main():
     if len(sys.argv)>=3:
