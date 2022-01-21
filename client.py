@@ -93,7 +93,8 @@ def send_udp_message(ip,message,port,burst_length=1):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         for i in range(0,burst_length):
             byte_message=str(message).encode("utf-8")
-            s.sendto(byte_message,(ip,port))
+            try:s.sendto(byte_message,(ip,port))
+            except:continue
 @threaded
 def send_broadcast_message(message,port,burst_length=1):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
