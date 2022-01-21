@@ -234,7 +234,7 @@ def test_ddos_send(target_ip):
     Data.game_state=""
 
 def main():
-    Data.client_name=input("Enter name: ")
+    
     if len(sys.argv)==3:
         if sys.argv[1]=="test_ddos":
             if sys.argv[2]=="listen":
@@ -243,7 +243,7 @@ def main():
                 test_ddos_send(sys.argv[2])
             os._exit(0)
         
-    
+    Data.client_name=input("Enter name: ")
     read_tcp_messages()
     read_udp_messages()
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
