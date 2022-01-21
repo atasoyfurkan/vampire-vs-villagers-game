@@ -1,3 +1,4 @@
+from ntpath import join
 from os import wait
 import socket
 import threading
@@ -214,27 +215,31 @@ def test_ddos_read():
         s.setblocking(0)
         counter=0
         while Data.run_message_daemon:
-            result = select.select([s],[],[],3)
-            if len(result[0]):
-                result[0][0].recvfrom(10240)
-                counter+=1
-            else:
+            result = select.select([s],[],[])
+            data,_=result[0][0].recvfrom(10240)
+            if data.decode("utf-8")=="end":
                 print("Packets received: %s" % (counter))
                 break
+            else:
+                counter+=1
 
             
 
 def test_ddos_send(target_ip):
     Data.host_ip=target_ip
     Data.game_state="daytime"
-    initiate_awe()
+    ddos_t=initiate_awe()
     time.sleep(1)
-    t=send_udp_message(target_ip,"Is this reaching?",Data.CLIENT_PORT,100)
-    t.join()
+    for i in range(0,100):
+        t=send_udp_message(target_ip,"Is this reaching?",Data.CLIENT_PORT,1)
+        t.join()
+        time.sleep(0.1)
     Data.game_state=""
+    ddos_t.join()
+    send_udp_message(target_ip,"end",Data.CLIENT_PORT,10)
+
 
 def main():
-    
     if len(sys.argv)==3:
         if sys.argv[1]=="test_ddos":
             if sys.argv[2]=="listen":
