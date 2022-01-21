@@ -1,3 +1,4 @@
+from lib2to3.pgen2 import token
 import socket
 import threading
 import select
@@ -70,6 +71,7 @@ def read_udp_messages():
             try: data=json.loads(data.decode("utf-8"))
             except: continue
             process_message(data,addr[0])
+
 @threaded
 def read_tcp_messages():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -85,6 +87,7 @@ def read_tcp_messages():
                 try: data=json.loads(data.decode("utf-8"))
                 except: continue
                 process_message(data,addr[0])
+
 @threaded
 def send_tcp_message(ip,message):
     byte_message=message.encode("utf-8")
@@ -95,6 +98,7 @@ def send_tcp_message(ip,message):
             print("could not send message " + message)
             return
         s.sendall(byte_message)
+
 @threaded
 def send_udp_message(ip,message,port,burst_length=1):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -102,6 +106,7 @@ def send_udp_message(ip,message,port,burst_length=1):
             byte_message=str(message).encode("utf-8")
             try:s.sendto(byte_message,(ip,port))
             except:continue
+
 @threaded
 def send_broadcast_message(message,port,burst_length=1):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -130,7 +135,7 @@ def process_message(message,sender_ip):
         Data.game_state=message["state"]
         Data.stage_start_time=time.time()
         Data.current_stage_time=int(message["duration"])
-        Data.game_messages.append("Current phase: %s, Time Remaining %d"%(Data.game_state,message["duration"]))
+        Data.game_messages.append("Stage change to %s, "%(Data.game_state))
     elif message["type"]==6:
         hanged_client=message["hanged_client_name"]
         if hanged_client==Data.client_name:
@@ -168,12 +173,10 @@ def read_inputs():
     while not Data.game_end:
         try: command=Data.input_queue.get()
         except: command=None
-        print(command)
         if command and Data.is_alive:
             if Data.game_state=="daytime":
                 tokens=command.split(' ')
                 if tokens[0]=="/say" and len(command)>6:
-                    print("Im here")
                     vote_message=json.dumps({"type":10,"body":command[5:]})
                     send_broadcast_message(vote_message,Data.CLIENT_PORT)  
                 if tokens[0]=="/awe":
@@ -181,21 +184,29 @@ def read_inputs():
                         Data.awe_used=True
                         initiate_awe()
                         Data.game_messages.append("Initiating awe...")
+                    else:
+                        Data.game_messages.append("You are not allowed to use /awe")
             elif Data.game_state=="votetime":
                 tokens=command.split(" ")
-                if tokens[0]=="/vote":
-                    vote_message=json.dumps({"type":5,"voted_client_name":tokens[1]})
-                    send_udp_message(Data.host_ip,vote_message,Data.HOST_PORT)
+                if len(tokens)>=2:
+                    if tokens[0]=="/vote" and tokens[1] in get_alive_users():
+                        vote_message=json.dumps({"type":5,"voted_client_name":tokens[1]})
+                        send_udp_message(Data.host_ip,vote_message,Data.HOST_PORT)
                 if tokens[0]=="/awe":
                     if Data.client_role=="vampire" and not Data.awe_used:
                         Data.awe_used=True
                         initiate_awe()
                         Data.game_messages.append("Initiating awe...")
+                    else:
+                        Data.game_messages.append("You are not allowed to use /awe")
             elif Data.game_state=="nighttime":
                     tokens=command.split(" ")
-                    if tokens[0]=="/kill":
-                        kill_message=json.dumps({"type":8,"attacked_client_name":tokens[1]})
-                        send_tcp_message(Data.host_ip,kill_message)
+                    if len(tokens)>=2:
+                        if tokens[0]=="/kill" and tokens[1] in get_alive_users():
+                            kill_message=json.dumps({"type":8,"attacked_client_name":tokens[1]})
+                            send_tcp_message(Data.host_ip,kill_message)
+            else:
+                Data.game_messages.append("Cannot execute command: %s" % command)
 
 def get_available_commands():
     available_commands=[]
@@ -204,15 +215,15 @@ def get_available_commands():
             available_commands.append("/say <message> : Broadcasts a chat message.")
             if Data.client_role=="vampire" and not Data.awe_used:
                 available_commands.append("/awe : Initiate a DdoS attact on host to induce packet loss, can be used only once per game")
-        
         elif Data.game_state=="votetime":
             available_commands.append("/vote <player-name> : Vote off a player to hang")
             if Data.client_role=="vampire" and not Data.awe_used:
                 available_commands.append("/awe : Initiate a DdoS attact on host to induce packet loss, can be used only once per game")
-        
         elif Data.game_state=="nighttime":
             if Data.client_role=="vampire":
-                print("/kill <player-name> : Kill a player")
+                available_commands.append("/kill <player-name> : Kill a player")
+    else:
+        available_commands.append("You are dead but you can spectate.")
     return available_commands
 
 def get_alive_users():
@@ -254,7 +265,7 @@ def test_ddos_send(target_ip,packet_count=100,delay=0.1):
     ddos_t.join()
     send_udp_message(target_ip,"end",Data.CLIENT_PORT,10).join()
 
-def main():
+def main(): 
     if len(sys.argv)>=3:
         if sys.argv[1]=="test_ddos":
             if sys.argv[2]=="listen":
@@ -262,28 +273,15 @@ def main():
             else:
                 test_ddos_send(*(sys.argv[2:]))
             os._exit(0)
-        
-    Data.client_name=input("Enter name: ")
-    read_tcp_messages()
-    read_udp_messages()
+    else:
+        start()
+
+def start():
+    
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.connect(("8.8.8.8", 80))
         Data.CLIENT_IP = s.getsockname()[0]
     
-    current_time=int(time.time()*1000)
-    broadcast_message=json.dumps({"type":1,"client_name":Data.client_name,"ID":current_time})
-    #Broadcast message will be sent with necessary format
-    send_broadcast_message(broadcast_message,Data.HOST_PORT,10)
-    #Wait for response from the host
-    if Data.join_response_event.wait(2):
-        #If yes, continue to wait for game start.
-        Data.game_start_event.wait()
-        read_inputs()
-    else: #Otherwise, exit
-        print("No active host is found, exiting the app...")
-        os._exit(0)
-
-def start_gui():
     read_udp_messages()
     read_tcp_messages()
     
@@ -292,11 +290,8 @@ def start_gui():
                 [sg.Text('Enter your name'), sg.Input('', enable_events=True,  key='-INPUT-', )],
                 [sg.Button('Ok',bind_return_key=True), sg.Button('Exit')],
                 [sg.ML(size=(100, 5), key='-TEXTBOX-')]
-
             ]
-    # Create the Window
     window = sg.Window('Vampire vs Villagers', layout)
-    
     messages=[]
     message_txt=window["-TEXTBOX-"]
     while True:             
@@ -314,9 +309,10 @@ def start_gui():
     messages.append("Broadcast message is sent, waiting for response...")
     message_txt.Update('\n'.join(messages))
     window.refresh()
+    #Wait for response from the host for 2s
     if Data.join_response_event.wait(2):
         pass
-    else:  #Wait for response from the host
+    else:  
         messages.append("No active host is found, exiting the app...")
         message_txt.Update('\n'.join(messages))
         window.refresh()
@@ -338,9 +334,9 @@ def start_gui():
                 return
     
     window.close()
-    core_game_gui()
+    core_game()
 
-def core_game_gui():
+def core_game():
     
     read_inputs()
     
@@ -350,11 +346,11 @@ def core_game_gui():
     current_stage_text=sg.Text("Current Stage: %s"%(Data.game_state))
     chatbox=sg.ML('\n'.join(Data.game_messages),size=(100, 40), key='-CHATBOX-')
     active_users_box=sg.ML('\n'.join(get_alive_users()),size=(10,40))
-    input_help_box=sg.ML('\n'.join(get_available_commands()),size=(50,2))
+    input_help_box=sg.ML('\n'.join(get_available_commands()),size=(70,4))
     timeleft= Data.current_stage_time-int(time.time()-Data.stage_start_time)
     counter=sg.Text("Stage Ends in : %s s"%(timeleft))
     
-    command_input=sg.InputText(do_not_clear=True,key="COMMAND")
+    command_input=sg.InputText(size=(70,1),do_not_clear=True,key="COMMAND")
     
     layout = [[role_text,current_stage_text,counter],
               [chatbox,active_users_box],
@@ -384,9 +380,5 @@ def core_game_gui():
     
     os._exit(0)
 
-
-
-
-
 if __name__ == "__main__":
-    start_gui()
+    main()
