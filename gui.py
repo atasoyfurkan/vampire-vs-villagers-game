@@ -152,6 +152,7 @@ def process_message(message,sender_ip):
         if killed_client==Data.client_name:
             Data.is_alive=False
             Data.game_messages.append("You have been killed by the vampire.")
+            del Data.ip_name_map[get_ip_from_name(killed_client)]
         else:
             del Data.ip_name_map[get_ip_from_name(killed_client)]
             Data.game_messages.append("%s is killed by the vampire"%(killed_client))
