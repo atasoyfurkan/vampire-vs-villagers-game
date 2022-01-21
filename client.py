@@ -229,27 +229,27 @@ def test_ddos_read():
 
             
 
-def test_ddos_send(target_ip):
+def test_ddos_send(target_ip,packet_count=100,delay=0.1):
     Data.host_ip=target_ip
     Data.game_state="daytime"
     ddos_t=initiate_awe()
     time.sleep(1)
-    for i in range(0,100):
+    for i in range(0,packet_count):
         t=send_udp_message(target_ip,"Is this reaching?",Data.CLIENT_PORT,1)
         t.join()
-        time.sleep(0.1)
+        time.sleep(delay)
     Data.game_state=""
     ddos_t.join()
     send_udp_message(target_ip,"end",Data.CLIENT_PORT,10).join()
 
 
 def main():
-    if len(sys.argv)==3:
+    if len(sys.argv)>=3:
         if sys.argv[1]=="test_ddos":
             if sys.argv[2]=="listen":
                 test_ddos_read()
             else:
-                test_ddos_send(sys.argv[2])
+                test_ddos_send(sys.argv[2],int(sys.argv.get(3,"100")),float(sys.argv.get(4,"0.1")))
             os._exit(0)
         
     Data.client_name=input("Enter name: ")
