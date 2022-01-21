@@ -287,7 +287,7 @@ def start_gui():
     read_udp_messages()
     read_tcp_messages()
     
-    sg.theme('DarkAmber')
+    sg.theme('DarkBrown4')
     layout = [  [sg.Text('Welcome to Vampire & Villagers')],
                 [sg.Text('Enter your name'), sg.Input('', enable_events=True,  key='-INPUT-', )],
                 [sg.Button('Ok',bind_return_key=True), sg.Button('Exit')],
@@ -344,7 +344,7 @@ def core_game_gui():
     
     read_inputs()
     
-    sg.theme('DarkAmber')
+    sg.theme('DarkBrown4')
     
     role_text=sg.Text("Role: %s"% (Data.client_role))
     current_stage_text=sg.Text("Current Stage: %s"%(Data.game_state))
