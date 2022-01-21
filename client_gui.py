@@ -8,6 +8,7 @@ import time
 import json
 import os
 import PySimpleGUI as sg
+
 class Data:
     HOST_PORT=12346
     CLIENT_PORT=12345
