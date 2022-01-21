@@ -215,7 +215,10 @@ def test_ddos_read():
         s.setblocking(0)
         counter=0
         while Data.run_message_daemon:
-            result = select.select([s],[],[])
+            result = select.select([s],[],[],5)
+            if not len(result[0]):
+                print("Timeout, packets received: %s" % (counter))
+                break
             data,_=result[0][0].recvfrom(10240)
             if data.decode("utf-8")=="end":
                 print("Packets received: %s" % (counter))
