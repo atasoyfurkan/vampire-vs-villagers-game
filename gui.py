@@ -168,10 +168,12 @@ def read_inputs():
     while not Data.game_end:
         try: command=Data.input_queue.get()
         except: command=None
-
+        print(command)
         if command and Data.is_alive:
             if Data.game_state=="daytime":
+                tokens=command.split(' ')
                 if tokens[0]=="/say" and len(command)>6:
+                    print("Im here")
                     vote_message=json.dumps({"type":10,"body":command[5:]})
                     send_broadcast_message(vote_message,Data.CLIENT_PORT)  
                 if tokens[0]=="/awe":
@@ -339,6 +341,9 @@ def start_gui():
     core_game_gui()
 
 def core_game_gui():
+    
+    read_inputs()
+    
     sg.theme('DarkAmber')
     
     role_text=sg.Text("Role: %s"% (Data.client_role))
