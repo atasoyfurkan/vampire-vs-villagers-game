@@ -13,6 +13,7 @@ class Data:
     CLIENT_PORT=12345
     CLIENT_IP=""
     
+    gui_theme="DarkBlack1"
     client_name=""
     ip_name_map={}
     game_state="initial"
@@ -145,7 +146,10 @@ def process_message(message,sender_ip):
             del Data.ip_name_map[get_ip_from_name(hanged_client)]
             Data.game_messages.append("%s is voted off and hanged"%(hanged_client))
     elif message["type"]==7:
-        Data.game_end_message="Game over, %s win!"%(message["winner"])
+        if message["winner"]=="vampire":
+            Data.game_end_message="Game over, %s win!"%(message["winner"])
+        else:
+            Data.game_end_message="Game over, %s wins!"%(message["winner"])
         Data.game_end=True
     elif message["type"]==9:
         killed_client=message["attacked_client_name"]
@@ -286,7 +290,7 @@ def start():
     read_udp_messages()
     read_tcp_messages()
     
-    sg.theme('DarkBrown4')
+    sg.theme(Data.gui_theme)
     layout = [  [sg.Text('Welcome to Vampire & Villagers')],
                 [sg.Text('Enter your name'), sg.Input('', enable_events=True,  key='-INPUT-', )],
                 [sg.Button('Ok',bind_return_key=True), sg.Button('Exit')],
@@ -299,7 +303,7 @@ def start():
         event, values = window.read()
         if event in (sg.WIN_CLOSED, 'Exit'):
             window.close()
-            return
+            os._exit(0)
         elif event=="Ok":
             Data.client_name=values["-INPUT-"]
             break
@@ -341,30 +345,35 @@ def core_game():
     
     read_inputs()
     
-    sg.theme('DarkBrown4')
-    
+    sg.theme(Data.gui_theme)
+    sg.theme_background_color('black')
+    stage_image=sg.Image('img/%s_image.png'%(Data.game_state),size=(30,40))
     role_text=sg.Text("Role: %s"% (Data.client_role))
     current_stage_text=sg.Text("Current Stage: %s"%(Data.game_state))
     chatbox=sg.ML('\n'.join(Data.game_messages),size=(100, 40), key='-CHATBOX-')
     active_users_box=sg.ML('\n'.join(get_alive_users()),size=(10,40))
-    input_help_box=sg.ML('\n'.join(get_available_commands()),size=(70,4))
+    input_help_box=sg.ML('\n'.join(get_available_commands()),size=(90,6))
     timeleft= Data.current_stage_time-int(time.time()-Data.stage_start_time)
     counter=sg.Text("Stage Ends in : %s s"%(timeleft))
     
-    command_input=sg.InputText(size=(70,1),do_not_clear=True,key="COMMAND")
+    command_input=sg.InputText(size=(90,1),do_not_clear=True,key="COMMAND")
     
-    layout = [[role_text,current_stage_text,counter],
-              [chatbox,active_users_box],
+    layout = [[sg.Column([[role_text,current_stage_text,counter],[stage_image]]),
+              sg.Column([[chatbox,active_users_box],
               [sg.Text("Available commands:"),input_help_box],
-              [sg.Text("Enter command:"),command_input,sg.Button('Ok',bind_return_key=True)]
-            ]
+              [sg.Text("Enter command:"),command_input,sg.Button('Ok',bind_return_key=True)]])
+    ]]
     
-    window = sg.Window('Vampire vs Villagers', layout)
-    
+    window = sg.Window('Vampire vs Villagers',layout,resizable=True)
+    last_state=""
     while True:
         event,values=window.read(0.5)
-        
-        current_stage_text.update("Current Stage: %s"%(Data.game_state))
+        if last_state!=Data.game_state:
+            last_state=Data.game_state
+            current_stage_text.update("Current Stage: %s"%(Data.game_state))
+            stage_image.update('img/%s_image.png'%(Data.game_state))
+
+
         chatbox.update('\n'.join(Data.game_messages))
         active_users_box.update('\n'.join(get_alive_users()))
         input_help_box.update('\n'.join(get_available_commands()))
