@@ -168,7 +168,7 @@ def process_message(message,sender_ip):
 def initiate_awe():
     while Data.game_state=="votetime" or Data.game_state=="daytime":
         udp_threads=[]
-        for i in range(0,100):
+        for i in range(0,50):
             udp_threads.append(send_udp_message(Data.host_ip,"Let there be no votes",1234,1000))
         for thread in udp_threads:
             thread.join()
@@ -239,7 +239,7 @@ def test_ddos_send(target_ip):
         time.sleep(0.1)
     Data.game_state=""
     ddos_t.join()
-    send_udp_message(target_ip,"end",Data.CLIENT_PORT,10)
+    send_udp_message(target_ip,"end",Data.CLIENT_PORT,10).join()
 
 
 def main():
