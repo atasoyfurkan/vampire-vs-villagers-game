@@ -1,6 +1,3 @@
-from curses import window
-from ntpath import join
-from pyexpat.errors import messages
 import socket
 import threading
 import select
@@ -9,9 +6,6 @@ import queue
 import time
 import json
 import os
-from typing import Text
-
-from click import command
 import PySimpleGUI as sg
 class Data:
     HOST_PORT=12346
