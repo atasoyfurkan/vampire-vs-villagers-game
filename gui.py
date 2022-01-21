@@ -131,7 +131,6 @@ def process_message(message,sender_ip):
         Data.stage_start_time=time.time()
         Data.current_stage_time=int(message["duration"])
         Data.game_messages.append("Current phase: %s, Time Remaining %d"%(Data.game_state,message["duration"]))
-        
     elif message["type"]==6:
         hanged_client=message["hanged_client_name"]
         if hanged_client==Data.client_name:
@@ -283,6 +282,9 @@ def main():
         os._exit(0)
 
 def start_gui():
+    read_udp_messages()
+    read_tcp_messages()
+    
     sg.theme('DarkAmber')
     layout = [  [sg.Text('Welcome to Vampire & Villagers')],
                 [sg.Text('Enter your name'), sg.Input('', enable_events=True,  key='-INPUT-', )],
@@ -310,8 +312,9 @@ def start_gui():
     messages.append("Broadcast message is sent, waiting for response...")
     message_txt.Update('\n'.join(messages))
     window.refresh()
-
-    if not Data.join_response_event.wait(2): #Wait for response from the host
+    if Data.join_response_event.wait(2):
+        pass
+    else:  #Wait for response from the host
         messages.append("No active host is found, exiting the app...")
         message_txt.Update('\n'.join(messages))
         window.refresh()
@@ -322,7 +325,16 @@ def start_gui():
     messages.append("Response received, waiting for other players...")
     message_txt.Update('\n'.join(messages))
     window.refresh()
-    Data.game_start_event.wait()
+    
+    while True:
+        if Data.game_start_event.wait(0.1):
+            break
+        else:
+            event, values = window.read(0.1)
+            if event in (sg.WIN_CLOSED, 'Exit'):
+                window.close()
+                return
+    
     window.close()
     core_game_gui()
 
