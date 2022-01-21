@@ -360,15 +360,14 @@ def core_game_gui():
     window = sg.Window('Vampire vs Villagers', layout)
     
     while True:
-        event,values=window.read(0.1)
+        event,values=window.read(0.5)
         
-        role_text.update("Role: %s"% (Data.client_role))
         current_stage_text.update("Current Stage: %s"%(Data.game_state))
         chatbox.update('\n'.join(Data.game_messages))
         active_users_box.update('\n'.join(get_alive_users()))
         input_help_box.update('\n'.join(get_available_commands()))
         timeleft= Data.current_stage_time-int(time.time()-Data.stage_start_time)
-        counter=sg.Text("Stage Ends in : %ss"%(str(timeleft)))
+        counter.update("Stage Ends in : %ss"%(str(timeleft)))
         
         if event=="Ok":
             Data.input_queue.put(values["COMMAND"])
