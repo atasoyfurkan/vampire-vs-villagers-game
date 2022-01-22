@@ -38,8 +38,9 @@ def main():
         print("INFO Total vote count:", len(votes))
         hanged_client = count_votes(votes)
         print("INFO Hanged client:", hanged_client)
-        kill_client(hanged_client, "hanged")
-        print("INFO Killed client:", hanged_client)
+        if hanged_client:
+            kill_client(hanged_client, "hanged")
+            print("INFO Killed client:", hanged_client)
 
         is_game_ended, winner = check_and_broadcast_game_ended()
         if is_game_ended:
@@ -230,6 +231,7 @@ def get_vote(content, voter_client_ip):
 
 def count_votes(votes):
     vote_of_clients = {}
+    hanged_name = None
     for voted_client in votes.values():
         if vote_of_clients.get(voted_client):
             vote_of_clients[voted_client] += 1
@@ -239,9 +241,12 @@ def count_votes(votes):
     if(len(vote_of_clients) > 0):  # if there is any voted user
         hanged_name = max(vote_of_clients, key=vote_of_clients.get)
 
-    else:  # if there is not any vote, hang one randomly
-        unlucky_id = random.randint(0, args.number_of_users-1)
-        hanged_name = list(clients.keys())[unlucky_id]
+    # else:  # if there is not any vote, hang one randomly
+    #     unlucky_id = random.randint(0, args.number_of_users-1)
+    #     hanged_name = list(clients.keys())[unlucky_id]
+    #     while(hanged_name["is_dead"]):
+    #         unlucky_id = random.randint(0, args.number_of_users-1)
+    #         hanged_name = list(clients.keys())[unlucky_id]
 
     return hanged_name
 
