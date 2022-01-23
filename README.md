@@ -46,3 +46,8 @@ One of the most challenging part of this project was actually the testing. Since
 * Wrote client.py, client_gui.py
 * Wrote Challenges part of README.md
 * Contributed to final presentation and demo
+
+## Furkan: Personal Effort
+- Wrote host.py
+- Wrote Objectives part of [README.md](http://readme.md/)
+- Contributed to final presentation and demo
