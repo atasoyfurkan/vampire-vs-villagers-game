@@ -8,6 +8,25 @@
     * ```<delay>``` is to determine delay between test packets.
     * Default values are 100 and 0.1 respectively. 
 
+## Objectives
+
+### Create a multiplayer game works on LAN
+
+- Our first objective is creating a multiplayer game which works on Local Area Network. We aimed to implement the communication processes with UDP and TCP messages on local network so that users can play with each other.
+
+### Create A Fun Game
+
+- Our second objective is that the game needs to be enjoyable so we planned the roles and the functionalities of the role to make it fun.
+
+### Implementing DDOS Attack
+
+- Our third objective is implementation of the DDOS attack for a functionality in the game. In this way, we plan to improve our perspective on the network and make the game more fun.
+
+### **Implementing GUI**
+
+- Our last objective is implementation of GUI which makes game more playable also cool design can attract people to play the game.
+
+
 ## Challenges
 
 ### Designing the Game & Network
