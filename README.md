@@ -49,5 +49,5 @@ One of the most challenging part of this project was actually the testing. Since
 
 ## Furkan: Personal Effort
 - Wrote host.py
-- Wrote Objectives part of [README.md](http://readme.md/)
+- Wrote Objectives part of README.md
 - Contributed to final presentation and demo
